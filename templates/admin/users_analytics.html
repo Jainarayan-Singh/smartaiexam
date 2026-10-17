@@ -224,14 +224,14 @@
         <div class="user-search-wrap">
           <input type="text" class="user-search-input" id="rf-user-search"
                  placeholder="Search username…" autocomplete="off"
-                 oninput="userSearchDebounce()" onfocus="userSearchDebounce()">
+                 oninput="document.getElementById('rf-user-id').value='';userSearchDebounce()" onfocus="userSearchDebounce()">
           <input type="hidden" id="rf-user-id" value="">
           <div class="user-dropdown" id="userDropdown"></div>
         </div>
       </div>
       <div>
         <label>Exam</label>
-        <select class="f-select" id="rf-exam">
+        <select class="f-select" id="rf-exam" onchange="applyResultsFilter()">
           <option value="">All Exams</option>
           {% for e in exams %}
           <option value="{{ e.id }}">{{ e.name }}</option>
@@ -254,7 +254,7 @@
       </div>
       <div style="display:flex;gap:.5rem;align-items:flex-end">
         <button class="btn-flat primary" onclick="applyResultsFilter()"><i class="fas fa-search"></i>Filter</button>
-        <button class="btn-flat secondary" onclick="clearResultsFilter()"><i class="fas fa-times"></i></button>
+        <button class="btn-flat secondary" onclick="clearResultsFilter()" title="Clear all filters"><i class="fas fa-rotate-left"></i>Clear</button>
       </div>
     </div>
 
@@ -510,6 +510,10 @@ document.addEventListener('click', e => {
 let _resultsCurPage = 1;
 let _resultsLoading = false;
 
+document.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && e.target.id === 'rf-user-search') { e.preventDefault(); document.getElementById('userDropdown').classList.remove('open'); applyResultsFilter(); }
+});
+
 function applyResultsFilter() {
   const from = document.getElementById('rf-from').dataset.iso || '';
   const to   = document.getElementById('rf-to').dataset.iso || '';
@@ -535,29 +539,40 @@ function clearResultsFilter() {
 
 function resultsPage(p) { _resultsCurPage = p; _fetchResults(); }
 
+let _resultsInflight = null, _resultsSeq = 0;
+
 function _fetchResults() {
-  if (_resultsLoading) return;
-  _resultsLoading = true;
+  // Only the newest request may draw: a filter change while one is loading cancels it instead of being ignored.
+  if (_resultsInflight) _resultsInflight.abort();
+  const ctl = new AbortController();
+  _resultsInflight = ctl;
+  const seq = ++_resultsSeq;
   const wrap = document.getElementById('resultsTableWrap');
   wrap.innerHTML = _skeletonTable();
+  wrap.setAttribute('aria-busy', 'true');
 
   const from = document.getElementById('rf-from').dataset.iso || '';   // YYYY-MM-DD, kept in sync by date-picker.js
   const to   = document.getElementById('rf-to').dataset.iso || '';
+  const userId = document.getElementById('rf-user-id').value;
+  const typed  = document.getElementById('rf-user-search').value.trim();
 
-  const params = new URLSearchParams({
-    user:     document.getElementById('rf-user-id').value,
-    exam:     document.getElementById('rf-exam').value,
-    dateFrom: from,
-    dateTo:   to,
-    page:     _resultsCurPage,
-    partial:  '1'
-  });
+  const params = new URLSearchParams({ page: _resultsCurPage, partial: '1' });
+  if (userId) { params.set('user', userId); params.set('userLabel', typed); }
+  else if (typed) params.set('q', typed);
+  if (document.getElementById('rf-exam').value) params.set('exam', document.getElementById('rf-exam').value);
+  if (from) params.set('dateFrom', from);
+  if (to)   params.set('dateTo', to);
 
-  fetch('/admin/users-analytics/results?' + params)
-    .then(r => r.text())
-    .then(html => { wrap.innerHTML = html; })
-    .catch(() => { wrap.innerHTML = '<p style="padding:2rem;color:#ef4444">Error loading results.</p>'; })
-    .finally(() => _resultsLoading = false);
+  fetch('/admin/users-analytics/results?' + params, { signal: ctl.signal, credentials: 'same-origin' })
+    .then(r => r.text().then(html => ({ ok: r.ok, html })))
+    .then(({ html }) => { if (seq === _resultsSeq) wrap.innerHTML = html; })   // the server renders the right state: rows, empty, filtered-empty or error
+    .catch(err => {
+      if (err.name === 'AbortError' || seq !== _resultsSeq) return;
+      wrap.innerHTML = `<div class="empty-state" role="alert"><i class="fas fa-wifi" style="color:var(--danger-text);opacity:.8"></i>
+        <p><strong>Could not reach the server</strong></p><p style="font-size:.8rem;margin-top:.4rem">Check your connection and try again.</p>
+        <button type="button" class="btn-flat secondary" style="margin-top:.9rem" onclick="_fetchResults()"><i class="fas fa-rotate"></i>Try again</button></div>`;
+    })
+    .finally(() => { if (seq === _resultsSeq) { _resultsInflight = null; wrap.removeAttribute('aria-busy'); } });
 }
 
 function _skeletonTable() {
