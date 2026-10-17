@@ -38,6 +38,8 @@ All AI calls are routed through a config-driven model registry (`config/ai_model
 - **AI Question Generator** — upload a PDF or image set and generate MCQ/numeric questions, reviewed and edited in the same CSV-style editor used for bulk import before saving
 - **AI Study Assistant** — chat interface for exam preparation with LaTeX-aware responses and daily usage limits
 - **AI Explanations** — Chain-of-Thought explanations for exam questions, including image-based (vision model) questions, with a persisted per-question explanation history
+- **Discuss with AI** — from a reviewed question, open the Assistant with that question attached (text, options, the student's answer and any saved explanation). A context bar shows what is attached, starter prompts fit the question, and the context can be removed to return to general study
+- **AI Configuration** — an admin page with six tabs (Overview, Features, Model Assignments, Model Catalog, Comparison, Providers & Configuration). A model change is picked, reviewed against compatibility checks, saved and then verified. API-key status is shown, never the key
 
 ### Secure Exam Delivery
 - Fullscreen enforcement with violation monitoring and tab-switch/visibility-change detection
@@ -51,7 +53,12 @@ Per-exam result visibility: **instant** (visible on submission), **delayed** (re
 - Student-level performance analytics and exam history
 - Live percentile-based ranking/leaderboard per exam
 - Full response review with correct-answer comparison and image support
-- Admin-side cross-student and cross-exam analytics dashboards, PDF result export
+- Admin **Dashboard** and **User Analytics**: horizontal, label-safe charts with plain-language metric descriptions, empty states, and theme-aware colours
+- **PNG export** for every chart and for the whole dashboard, generated entirely in the browser (`static/shared/chart-export.js`), with no server work
+- PDF result export
+
+### Plans & Access
+Free, Pro and Elite plans, the features each includes and every per-student limit are defined in `config/entitlements.json`. Expiry is stored in UTC and shown in `APP_TIMEZONE`; "N days" lasts through the end of day N. The public `/plans` page and the landing-page plans section read the same file, so they cannot drift from what the portal enforces. There is no online checkout: an administrator assigns plans.
 
 ### Notes
 Private student notebooks with a canvas-based page editor, drawing tools, a notebook library with sharing, trash with configurable retention, and export.
@@ -121,46 +128,60 @@ Both `app/routes/web/` and `app/routes/api/v01/` are split into a flat set of fe
 
 ## Project Structure
 
+The full file listing is in [`project_structure.txt`](project_structure.txt). In outline:
+
 ```
 ExamPortal/
-├── main.py                    # Entry point — gevent monkey-patch, app factory, socketio.run()
+├── main.py                    # Entry point: gevent monkey-patch, app factory, socketio.run()
 ├── requirements.txt
 ├── config/
-│   └── ai_models.json         # AI registry: providers, models, features, default assignments (see AI_MODELS.md)
-├── migrations/                 # Incremental SQL migrations (applied manually)
+│   ├── ai_models.json         # AI registry: providers, models, features, default assignments
+│   ├── AI_MODELS.md           # Guide for the registry (also opened by the Guide button in Admin)
+│   ├── entitlements.json      # Plans, features and per-student limits
+│   └── ENTITLEMENTS.md        # How to edit plans and limits
+├── migrations/                # Incremental SQL migrations (applied manually)
+├── scripts/                   # One-off admin scripts (e.g. grant_root.py)
+├── tests/                     # unittest suites (AI layer, entitlements, plan expiry, notes, ...)
 │
 ├── app/
 │   ├── __init__.py            # App factory: sessions, SocketIO, OAuth, JWT, blueprints
 │   ├── config.py              # All environment variables read here, nowhere else
-│   │
+│   ├── entitlements/          # Plans, access resolution, expiry policy (validity.py), admin authority
 │   ├── routes/
-│   │   ├── web/                # Server-rendered page routes
-│   │   │   ├── admin/          # Admin-only page routes
-│   │   │   └── *.py             # auth, exams, dashboard, chat, notes, results, ...
-│   │   └── api/v01/            # JSON API routes (versioned)
-│   │       └── admin/          # Admin-only API routes
-│   │
-│   ├── services/               # Business logic — exam scoring, AI, email, PDF, ranking,
-│   │                            # notes, chat, discussions, auth, user deletion
-│   ├── db/                     # One module per DB domain (users, exams, questions, ...)
-│   ├── storage/                # Object storage backends: local.py, s3.py
-│   ├── middleware/              # session_guard.py, jwt_middleware.py
-│   └── utils/                  # datetime_service, latex, cache, sanitize, pagination
+│   │   ├── web/               # Server-rendered pages (admin/ for admin-only pages)
+│   │   └── api/v01/           # JSON API routes (admin/ for admin-only APIs)
+│   ├── services/              # Business logic: exams, AI (services/ai = registry + adapters), email, PDF, ranking, notes, chat
+│   ├── db/                    # One module per DB domain; all SQL lives here
+│   ├── storage/               # Object storage backends: local.py, s3.py
+│   ├── middleware/            # session_guard.py, jwt_middleware.py
+│   └── utils/                 # datetime_service, latex, cache, sanitize, pagination
 │
 ├── templates/
-│   ├── admin/                  # Admin portal pages
-│   ├── notes/                  # Notebook editor/library/trash
-│   ├── emails/                 # Transactional email templates
-│   ├── partials/               # Shared Jinja fragments
-│   └── *.html                  # Student-facing pages (dashboard, exam, results, chat, ...)
+│   ├── admin/                 # Admin portal pages (dashboard, analytics, AI configuration, ...)
+│   ├── notes/                 # Notebook editor, library, trash
+│   ├── emails/                # Transactional email templates
+│   ├── partials/              # Shared Jinja fragments
+│   └── *.html                 # Student and public pages (landing, plans, dashboard, exam, results, chat, ...)
 │
 └── static/
-    ├── shared/                 # Reusable UI components (date-picker, view-toggle, ...)
-    ├── notes/                  # Notebook editor JS/CSS (drawing tools, export)
-    ├── ai_assistant/           # Study assistant chat UI
-    ├── admin/                  # Admin list-controller UI
-    └── theme.css                # Multi-theme design system (dark/light + variants)
+    ├── favicon.png            # Browser-tab icon used by every page
+    ├── logo.png, logo.mp4     # Brand mark
+    ├── shared/                # Reusable UI: date-picker, chart-export, plan-badge, plan-validity, page-nav, ...
+    ├── admin/                 # select-enhance (themed dropdown), list-controller, AI guide
+    ├── notes/                 # Notebook editor JS/CSS
+    ├── ai_assistant/          # Study assistant chat UI
+    └── theme.css              # Multi-theme design system (dark/light + variants)
 ```
+
+---
+
+## Tests
+
+```bash
+python -m unittest tests.test_ai_layer tests.test_entitlements tests.test_plan_expiry tests.test_admin_authority
+```
+
+Run suites by module; some tests share global state, so a single `discover` run can order them differently.
 
 ---
 
