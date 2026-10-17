@@ -386,6 +386,7 @@ img{max-width:100%;display:block}
         <a href="#exams" class="nav-link">Exams</a>
         <a href="{{ url_for('misc.api_docs') }}" class="nav-link">API Docs</a>
         <a href="{{ url_for('misc.support') }}" class="nav-link">Support</a>
+        {% if PUBLIC_HUB_URL %}<a href="{{ PUBLIC_HUB_URL }}" class="nav-link">{{ PUBLIC_HUB_NAME }}</a>{% endif %}
         <a href="{{ url_for('auth.login') }}" class="nav-link">Sign in</a>
         <a href="{{ url_for('auth.create_account') }}" class="nav-cta">Get started</a>
         <div class="landing-theme-selector" id="landingThemeSelector">
@@ -411,6 +412,7 @@ img{max-width:100%;display:block}
         <a href="#exams">Exams</a>
         <a href="{{ url_for('misc.api_docs') }}" class="nav-link">API Docs</a>
         <a href="{{ url_for('misc.support') }}">Support</a>
+        {% if PUBLIC_HUB_URL %}<a href="{{ PUBLIC_HUB_URL }}">{{ PUBLIC_HUB_NAME }}</a>{% endif %}
         <a href="{{ url_for('auth.login') }}">Sign in</a>
         <a href="{{ url_for('auth.create_account') }}">Get started →</a>
         <div class="mobile-theme-row">
