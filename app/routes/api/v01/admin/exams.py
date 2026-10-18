@@ -44,6 +44,11 @@ _ROWS_TPL = (
 @admin_api_bp.route("/exams", methods=["GET"])
 @require_admin_permission("exam_management")
 def api_exams_list():
+    from app.services.exam_filters import parse_advanced_filter, FilterError
+    try:
+        advanced = parse_advanced_filter(request.args.get("adv"))
+    except FilterError as e:
+        return jsonify({"success": False, "message": str(e)}), 400
     result = get_exams_page(
         search=request.args.get("q", "").strip(),
         category_id=request.args.get("category_id") or None,
@@ -51,6 +56,7 @@ def api_exams_list():
         status=request.args.get("status", "").strip(),
         page=request.args.get("page", 1),
         per_page=request.args.get("per_page", 20),
+        advanced=advanced,
     )
     for e in result["exams"]:
         e["date_display"] = format_calendar_date(e.get("date"))
