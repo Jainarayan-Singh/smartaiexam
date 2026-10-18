@@ -505,7 +505,7 @@
     <p>Create, edit and manage all exams on the portal.</p>
   </div>
   <div style="display:flex;gap:.5rem">
-    <select id="examImportDuplicate" class="form-select form-select-sm" style="width:auto" aria-label="If an exam was already imported"
+    <select id="examImportDuplicate" class="admin-list-filter" aria-label="If an exam was already imported"
             title="What to do with an exam that already exists here with the same name and identical questions">
       <option value="skip">Skip exams already imported</option>
       <option value="rename">Import again as a copy</option>
@@ -1868,6 +1868,7 @@ examCategoryFilterEl.addEventListener('change', () => {
 enhanceSelect(examCategoryFilterEl, { icon: 'fas fa-layer-group' });
 enhanceSelect(examSubcategoryFilterEl, { icon: 'fas fa-sitemap' });
 enhanceSelect(examStatusFilterEl, { icon: 'fas fa-circle-half-stroke' });
+enhanceSelect(document.getElementById('examImportDuplicate'), { icon: 'fas fa-clone' });
 
 // Same treatment for the Add/Edit Exam form selects — full-width "block"
 // mode so they sit flush with their sibling .form-control inputs. The
