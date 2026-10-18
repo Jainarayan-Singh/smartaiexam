@@ -377,16 +377,19 @@ def _run_export_job(job_id: str, exam_ids: list) -> None:
                     message="Unable to export these exams. Please try again.")
 
 
-def _run_import_job(job_id: str, zip_path: str) -> None:
+def _run_import_job(job_id: str, zip_path: str, on_duplicate: str = "skip", allow_create_subjects: bool = True) -> None:
     def on_progress(phase: str, message: str, percent: int):
         _job_update(_import_jobs, _import_jobs_lock, job_id, phase=phase, message=message, percent=percent)
 
     try:
-        report = exam_export_service.run_import(zip_path, progress=on_progress)
+        report = exam_export_service.run_import(zip_path, progress=on_progress, on_duplicate=on_duplicate,
+                                                allow_create_subjects=allow_create_subjects)
         _job_update(_import_jobs, _import_jobs_lock, job_id, status="done", phase="complete",
                     percent=100, message="Import complete", report=report, error=None)
     except ValueError as exc:
-        _job_update(_import_jobs, _import_jobs_lock, job_id, status="failed", error=str(exc), message=str(exc))
+        # a rejected package changed nothing; `errors` lists every problem found so the admin can fix them in one go
+        _job_update(_import_jobs, _import_jobs_lock, job_id, status="failed", error=str(exc), message=str(exc),
+                    errors=getattr(exc, "errors", None))
     except Exception:
         import traceback; traceback.print_exc()
         _job_update(_import_jobs, _import_jobs_lock, job_id, status="failed",
@@ -467,6 +470,13 @@ def start_exam_import():
     if not f.filename or not f.filename.lower().endswith(".zip"):
         return jsonify({"success": False, "message": "File must be a .zip export."}), 400
 
+    on_duplicate = request.form.get("on_duplicate", "skip")
+    if on_duplicate not in ("skip", "rename"):
+        return jsonify({"success": False, "message": "Invalid duplicate handling option."}), 400
+    # Creating Subjects is a separate admin feature; an import may only create them for someone who holds it.
+    from app.entitlements import has_admin_permission
+    allow_create_subjects = has_admin_permission(session.get("user_id"), "subject_management")
+
     job_id = uuid.uuid4().hex[:12]
     zip_path = exam_export_service.import_in_path(job_id)
     f.save(zip_path)
@@ -476,7 +486,7 @@ def start_exam_import():
             "status": "running", "phase": "validating", "message": "Reading export file...",
             "percent": 0, "report": None, "error": None, "_owner_id": session["user_id"],
         }
-    threading.Thread(target=_run_import_job, args=(job_id, zip_path), daemon=True).start()
+    threading.Thread(target=_run_import_job, args=(job_id, zip_path, on_duplicate, allow_create_subjects), daemon=True).start()
     return jsonify({"success": True, "job_id": job_id})
 
 
