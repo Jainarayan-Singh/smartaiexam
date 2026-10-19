@@ -82,6 +82,12 @@
     var body = document.createElement('div'); body.className = 'nf-body';
     if (welcome) {
       lead.className = 'nf-avatar'; lead.setAttribute('aria-hidden', 'true'); lead.textContent = initials(o.name);
+      if (o.avatar) {                                                // the member's own photo (same authenticated URL as the navbar); initials stay if it is missing or fails to load
+        var photo = document.createElement('img'); photo.alt = ''; photo.decoding = 'async'; photo.className = 'nf-photo';
+        photo.addEventListener('load', function () { photo.classList.add('nf-photo-on'); });
+        photo.addEventListener('error', function () { photo.remove(); });
+        photo.src = o.avatar; lead.appendChild(photo);
+      }
       var eyebrow = document.createElement('div'); eyebrow.className = 'nf-eyebrow'; eyebrow.textContent = 'Welcome back';
       var name = document.createElement('div'); name.className = 'nf-name'; name.textContent = o.name;
       body.append(eyebrow, name);
@@ -101,7 +107,7 @@
   function show(opts) {
     opts = opts || {};
     var o = {
-      type: kind(opts.type), variant: opts.variant || 'default', title: opts.title || '', message: opts.message == null ? '' : String(opts.message), name: opts.name || '',
+      type: kind(opts.type), variant: opts.variant || 'default', title: opts.title || '', message: opts.message == null ? '' : String(opts.message), name: opts.name || '', avatar: opts.avatar || '',
       sub: opts.sub || '', icon: opts.icon || '', html: !!opts.html, sticky: !!opts.sticky, duration: 0,
     };
     if (o.variant === 'welcome') o.type = 'info';
@@ -161,6 +167,7 @@
 
   // ── server (Flask) flashes ───────────────────────────────────────────────────────────────────
   function cleanText(text) { return String(text == null ? '' : text).replace(/^(?:[✅❌⚠ℹ]️?\s*)+/, '').trim(); }
+  function avatarUrl() { var m = document.querySelector('meta[name="notify-avatar"]'); return (m && m.content) || ''; }
   function portal() { var m = document.querySelector('meta[name="notify-portal"]'); return (m && m.content) || 'user'; }
 
   function present(category, text) {
@@ -168,7 +175,7 @@
     if (!text) return;
     var cat = kind(category), welcome = /^Welcome back,\s*(.+?)\s*!?$/i.exec(text);
     if (welcome && cat === 'success') {
-      show({ variant: 'welcome', name: welcome[1], sub: portal() === 'admin' ? 'Admin portal' : 'Good to see you again', key: 'welcome|' + welcome[1] });
+      show({ variant: 'welcome', name: welcome[1], avatar: avatarUrl(), sub: portal() === 'admin' ? 'Admin portal' : 'Good to see you again', key: 'welcome|' + welcome[1] });
     } else if (cat === 'success' && /\blog(?:ged)? ?out\b/i.test(text)) {
       show({ type: 'success', icon: 'logout', title: 'Signed out', message: text });
     } else show({ type: cat, message: text });

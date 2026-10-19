@@ -3,6 +3,7 @@
     as JSON and consumed once by Notify.flash(); nothing else in the project should render get_flashed_messages(). Set `notify_portal`
     to 'admin' before including for the Admin portal (it only changes the welcome card's sub-line). -#}
 <meta name="notify-portal" content="{{ notify_portal|default('user') }}">
-<link href="{{ url_for('static', filename='shared/notify.css') }}" rel="stylesheet">
+{% if NAV_AVATAR_URL %}<meta name="notify-avatar" content="{{ NAV_AVATAR_URL }}">
+{% endif %}<link href="{{ url_for('static', filename='shared/notify.css') }}" rel="stylesheet">
 <script src="{{ url_for('static', filename='shared/notify.js') }}"></script>
 {% with messages = get_flashed_messages(with_categories=true) %}{% if messages %}<script type="application/json" id="notifyFlash">{{ messages|tojson }}</script>{% endif %}{% endwith %}

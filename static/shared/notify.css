@@ -68,6 +68,9 @@
   background: linear-gradient(145deg, var(--accent, #4a86e8), color-mix(in srgb, var(--accent, #4a86e8) 55%, #000));
   box-shadow: 0 6px 16px -6px color-mix(in srgb, var(--accent, #4a86e8) 70%, transparent);
 }
+.nf-welcome .nf-photo { position: absolute; inset: 0; width: 100%; height: 100%; border-radius: 50%; object-fit: cover; opacity: 0; transition: opacity .25s ease; }
+.nf-welcome .nf-photo.nf-photo-on { opacity: 1; }
+.nf-welcome .nf-avatar:has(.nf-photo-on) { background: var(--surface-2, #ddd); font-size: 0; }
 .nf-welcome .nf-avatar::after { content: ""; position: absolute; inset: -4px; border-radius: 50%; border: 2px solid color-mix(in srgb, var(--accent, #4a86e8) 55%, transparent); opacity: 0; animation: nf-ring 1.1s .25s ease-out 1 both; }
 .nf-welcome .nf-eyebrow { font-size: .64rem; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; color: var(--accent, #4a86e8); line-height: 1.2; }
 .nf-welcome .nf-name { font-size: 1.08rem; font-weight: 800; line-height: 1.25; letter-spacing: -.012em; margin-top: .08rem; overflow-wrap: anywhere; }
